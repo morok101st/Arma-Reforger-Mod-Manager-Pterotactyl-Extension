@@ -1,0 +1,38 @@
+# Configuration & behavior
+
+## Admin → Extensions
+
+| Setting | Purpose | Recommended |
+|---|---|---|
+| `url` | ARMM HTTPS base URL (without `/api`) | Valid HTTPS URL |
+| `username` | ARMM API account | Dedicated `webinterface` account with modset access |
+| `password` | ARMM password | Secret; never commit |
+| `tls_verify` | Validate certificate | `1` |
+| `keep_versions` | Keep `version` from ARMM export | `1` (ARMM controls versions) |
+
+ARMM endpoints: `POST /api/auth/login`, `GET /api/modsets`, and `GET /api/modsets/{id}/export`. The ARMM account must have access to each modset. Otherwise the export may return HTTP 404 despite a successful login.
+
+## Manual synchronization sequence
+
+1. Open the server's **ARMM Modsets** tab (admin account).
+2. Click **Sync Modsets** to refresh the choices from ARMM.
+3. Select the desired entry, save the assignment.
+4. Stop Reforger and click **config.json synchronisieren**.
+5. Backend authenticates with ARMM, downloads the mod list, validates mod IDs, reads `config.json` via Wings, writes `config.json.armm.bak`, updates only `game.mods`, and records sync time/count.
+
+Your other settings (e.g., ACE settings, server name, scenario) are left structurally unchanged. The JSON file may be reformatted during serialization. Only the latest `config.json.armm.bak` is retained, so keep separate historical backups if needed.
+
+The standard Reforger startup may remain:
+
+```bash
+sed -i 's/"true"/true/g; s/"false"/false/g' config.json && exec ./ArmaReforgerServer -gproj ./addons/data/ArmaReforger.gproj -config ./config.json -profile ./profile -backendlog -nothrow -listScenarios -logStats $(({{LOG_INTERVAL}}*1000)) -maxFPS {{MAX_FPS}} -addonTempDir ./tmp {{START_PARAM}}
+```
+
+The Extension does not depend on a modified Egg, its ARMM variables, or `armm-sync.sh`.
+
+## Current limitations
+
+- Manual button only, no pre-start hook.
+- Backend operations require `root_admin`; non-admin server users cannot manage modsets.
+- The API list parser supports a plain list or `data` / `modsets` / `items` wrapper.
+- Sync is designed for offline game servers; no automatic restart or scheduling.
