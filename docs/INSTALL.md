@@ -1,76 +1,44 @@
-# Installation / Update (Docker Compose)
+# Install / Update through the Pterodactyl UI
 
-These commands assume the Docker Compose stack is located at **`/data/ptero2`** and the Panel service is called `panel`.
+Download the release package `armm-modsets-v<release-version>.zip` from the [GitHub Releases page](https://github.com/morok101st/Arma-Reforger-Mod-Manager-Pterotactyl-Extension/releases). Do **not** use GitHub's automatically generated **Source code** ZIP; it is not an installable extension package.
 
-## 1. Build
+These instructions require an administrator account in a compatible Pterodactyl Panel. The exact wording of upload or install controls can vary between Panel beta versions.
 
-Follow [BUILD.md](BUILD.md), creating:
+## Fresh installation
 
-`/data/ptero2/armm-extension-build/armm-modsets-repo/build/armm-modsets-v1.1.1.zip`
+1. In the Panel, open **Admin → Extensions**.
+2. Use the Extensions UI to upload `armm-modsets-v<release-version>.zip`.
+3. Install the uploaded package and enable **ARMM Modset Manager** (`armm-modsets`).
+4. Confirm that the extension is listed as installed and enabled, and that its displayed version matches the downloaded release.
 
-## 2. Upload to Panel container and run doctor
+## Update an existing installation
 
-```bash
-cd /data/ptero2
-PACKAGE=armm-extension-build/armm-modsets-repo/build/armm-modsets-v1.1.1.zip
-mkdir -p armm-extension-build/armm-modsets-doctor
-unzip -oq "$PACKAGE" -d armm-extension-build/armm-modsets-doctor
-docker compose cp armm-extension-build/armm-modsets-doctor/. panel:/tmp/armm-modsets-doctor/
-docker compose exec panel php artisan p:extension:doctor /tmp/armm-modsets-doctor
-```
+1. Create a **Panel database backup** before updating.
+2. Download the desired newer release package from GitHub Releases.
+3. In **Admin → Extensions**, use the UI update/replace flow for the existing `armm-modsets` extension and upload the new package.
+4. Confirm that the extension is enabled after the update and that the displayed version is correct.
+5. Do not remove the extension as part of a normal update. Its settings and per-server assignments should be preserved.
 
-Do not continue if doctor reports an error.
+## Configure and test
 
-## 3a. Fresh installation
+1. Open **Admin → Extensions → ARMM Modset Manager** and configure the ARMM URL, username, password, TLS validation, and version preservation.
+2. Open an Arma Reforger server and select **ARMM Modsets**.
+3. Click **Sync Modsets**, select a modset, and save the assignment.
+4. Stop the game server and make an additional backup of its `config.json` if required by your operating procedures.
+5. Click **Synchronize config.json**.
+6. Confirm that only `game.mods` changed and that `config.json.armm.bak` exists. Start the server and validate the selected mods.
 
-```bash
-docker compose cp "$PACKAGE" panel:/tmp/armm-modsets-v1.1.1.zip
-docker compose exec panel php artisan p:extension:install /tmp/armm-modsets-v1.1.1.zip
-docker compose exec panel php artisan p:extension:enable armm-modsets
-docker compose exec panel php artisan p:extension:list
-```
-
-## 3b. Upgrade existing extension
-
-Take a **Panel database backup** first. Preserve Extension settings and assignments. Do not drop its assignment table.
-
-```bash
-docker compose cp "$PACKAGE" panel:/tmp/armm-modsets-v1.1.1.zip
-docker compose exec panel php artisan p:extension:disable armm-modsets
-docker compose exec panel php artisan p:extension:install /tmp/armm-modsets-v1.1.1.zip --replace
-docker compose exec panel php artisan p:extension:enable armm-modsets
-docker compose exec panel php artisan p:extension:list
-```
-
-Expected: `armm-modsets | ARMM Modset Manager | 1.1.1 | yes | enabled`.
-
-## 4. Configure and test
-
-1. Admin → Extensions → ARMM Modset Manager: configure URL, login, password, TLS validation, version preservation.
-2. Open a Reforger server → **ARMM Modsets**.
-3. Click **Sync Modsets**, choose a modset, **Zuordnung speichern**.
-4. Stop the game server, back up its `config.json`, then click **config.json synchronisieren**.
-5. Confirm only `game.mods` changed and `config.json.armm.bak` exists; start the server and validate the mods.
-
-The sync is manual; simply starting a server will **not** fetch a new modset.
+The sync is manual; starting a server does **not** fetch or apply a new modset.
 
 ## Troubleshooting and rollback
 
-For a 500 error, inspect Laravel logs after reproducing:
+- If installation, configuration, or sync fails, reproduce the issue and inspect the Panel's Laravel logs using your Panel deployment's normal log-access method.
+- If a release malfunctions, disable the extension in **Admin → Extensions**.
+- To roll back, install or update to a previously working release package through the same UI, then enable it and verify the version.
+- Restore the Panel database backup if the update changed data unexpectedly.
+- Restore a game configuration from `config.json.armm.bak` only when appropriate.
+- Avoid removing the extension during rollback: removal can delete extension settings or data.
 
-```bash
-cd /data/ptero2
-docker compose exec panel sh -c 'tail -n 120 "$(ls -t /app/storage/logs/laravel*.log | head -1)"'
-```
+## Building your own package
 
-The previously fixed error `DaemonFileRepository does not exist` occurred in v1.1.0; v1.1.1 uses `ReadsFileContents` / `WritesFileContents`.
-
-If the new version malfunctions, disable it:
-
-```bash
-docker compose exec panel php artisan p:extension:disable armm-modsets
-```
-
-Restore a prior package with `p:extension:install <archive> --replace` and `p:extension:enable armm-modsets`; restore Panel DB backups if a migration has modified data. For the game configuration, restore `config.json` from `config.json.armm.bak` only if appropriate.
-
-**Avoid `p:extension:remove` during rollback:** it may remove extension data/settings.
+Normal installations should use a published release package. If you need to build from source, follow [BUILD.md](BUILD.md), then upload the generated `build/armm-modsets-v<release-version>.zip` through the Extensions UI.

@@ -1,6 +1,8 @@
 # Configuration & behavior
 
-## Admin → Extensions
+Install and enable the extension through **Admin → Extensions** before configuring it. The following settings are available under **Admin → Extensions → ARMM Modset Manager**.
+
+## Admin → Extensions → ARMM Modset Manager
 
 | Setting | Purpose | Recommended |
 |---|---|---|
@@ -17,7 +19,7 @@ ARMM endpoints: `POST /api/auth/login`, `GET /api/modsets`, and `GET /api/modset
 1. Open the server's **ARMM Modsets** tab (admin account).
 2. Click **Sync Modsets** to refresh the choices from ARMM.
 3. Select the desired entry, save the assignment.
-4. Stop Reforger and click **config.json synchronisieren**.
+4. Stop Reforger and click **Synchronize config.json**.
 5. Backend authenticates with ARMM, downloads the mod list, validates mod IDs, reads `config.json` via Wings, writes `config.json.armm.bak`, updates only `game.mods`, and records sync time/count.
 
 Your other settings (e.g., ACE settings, server name, scenario) are left structurally unchanged. The JSON file may be reformatted during serialization. Only the latest `config.json.armm.bak` is retained, so keep separate historical backups if needed.

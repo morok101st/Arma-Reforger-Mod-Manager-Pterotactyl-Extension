@@ -7,7 +7,7 @@ STAGING="${STAGING:-$ROOT/.build}"
 TARGET="${TARGET:-$ROOT/build}"
 msg() { printf '\n[ARMM BUILD] %s\n' "$*"; }
 die() { printf '\n[ARMM BUILD] ERROR: %s\n' "$*" >&2; exit 1; }
-for cmd in docker git python3 zip; do command -v "$cmd" >/dev/null || die "$cmd fehlt"; done
+for cmd in docker git python3 zip; do command -v "$cmd" >/dev/null || die "$cmd is required"; done
 mkdir -p "$STAGING" "$TARGET"
 if [[ ! -d "$STAGING/.panel/.git" ]]; then
   git clone --depth 1 --branch "$PANEL_TAG" https://github.com/pterodactyl/panel.git "$STAGING/.panel"
@@ -48,12 +48,12 @@ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
   -e npm_config_cache=/tmp/npm-cache -v "$STAGING:/work" \
   -w /work/armm-modsets node:22-bookworm sh -ec \
   'npm install --no-audit --no-fund && npm run typecheck && npm run build'
-[[ -s "$STAGING/armm-modsets/dist/client.js" ]] || die 'Frontend-Build fehlt'
-msg 'PHP-Syntaxprüfung'
+[[ -s "$STAGING/armm-modsets/dist/client.js" ]] || die 'Frontend build is missing'
+msg 'PHP syntax check'
 docker run --rm -v "$STAGING/armm-modsets:/ext:ro" php:8.4-cli sh -ec \
   'find /ext/src /ext/routes /ext/database -type f -name "*.php" -exec php -l {} \;'
-msg 'Installationsarchiv wird erzeugt'
+msg 'Creating installation archive'
 (cd "$STAGING/armm-modsets" && zip -qr "$TARGET/armm-modsets-v1.1.1.zip" \
   extension.json src routes database dist README.md)
-msg "Fertig: $TARGET/armm-modsets-v1.1.1.zip"
-msg 'Vor Installation bitte p:extension:doctor ausführen.'
+msg "Complete: $TARGET/armm-modsets-v1.1.1.zip"
+msg 'Install the package through the Pterodactyl Extensions UI.'
