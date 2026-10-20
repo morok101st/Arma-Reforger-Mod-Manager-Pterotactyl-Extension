@@ -30,8 +30,6 @@ The standard Reforger startup may remain:
 sed -i 's/"true"/true/g; s/"false"/false/g' config.json && exec ./ArmaReforgerServer -gproj ./addons/data/ArmaReforger.gproj -config ./config.json -profile ./profile -backendlog -nothrow -listScenarios -logStats $(({{LOG_INTERVAL}}*1000)) -maxFPS {{MAX_FPS}} -addonTempDir ./tmp {{START_PARAM}}
 ```
 
-The Extension does not depend on a modified Egg, its ARMM variables, or `armm-sync.sh`.
-
 ## Current limitations
 
 - Manual button only, no pre-start hook.

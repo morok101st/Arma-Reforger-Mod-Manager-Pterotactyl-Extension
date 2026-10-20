@@ -11,7 +11,6 @@ Native **ARMM Modsets** tab for Arma Reforger servers in Pterodactyl 2.x.
 - Store per-server assignments in `ext_armm_modsets_assignments`.
 - **Synchronize config.json** reads the selected modset's `/api/modsets/{id}/export`, backs up `config.json` as `config.json.armm.bak`, and replaces only `game.mods` through Wings.
 - Preserve mod version fields returned by ARMM when the corresponding setting is enabled.
-- Does **not** require the old `armm-sync.sh` or ARMM Egg startup variables.
 
 **Not supported:** automatic synchronization on every server start. This extension synchronizes only when the button is clicked. It is intended for administrators, and sync should be performed with the game server stopped.
 
