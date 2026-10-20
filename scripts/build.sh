@@ -9,16 +9,18 @@ msg() { printf '\n[ARMM BUILD] %s\n' "$*"; }
 die() { printf '\n[ARMM BUILD] ERROR: %s\n' "$*" >&2; exit 1; }
 for cmd in docker git python3 zip; do command -v "$cmd" >/dev/null || die "$cmd fehlt"; done
 mkdir -p "$STAGING" "$TARGET"
-if [[ ! -d "$STAGING/panel/.git" ]]; then
-  git clone --depth 1 --branch "$PANEL_TAG" https://github.com/pterodactyl/panel.git "$STAGING/panel"
+if [[ ! -d "$STAGING/.panel/.git" ]]; then
+  git clone --depth 1 --branch "$PANEL_TAG" https://github.com/pterodactyl/panel.git "$STAGING/.panel"
 fi
-[[ -f "$STAGING/panel/packages/sdk/package.json" ]] || die 'Panel SDK nicht gefunden'
+[[ -f "$STAGING/.panel/packages/sdk/package.json" ]] || die 'Panel SDK nicht gefunden'
 if [[ ! -d "$STAGING/official-extensions/.git" ]]; then
   git clone --depth 1 https://github.com/pterodactyl/extensions.git "$STAGING/official-extensions"
 fi
 TEMPLATE="$STAGING/official-extensions/custom-buttons"
+# The official template resolves @pterodactyl/sdk via file:../.panel/packages/sdk.
+# Keep the SDK checkout at .build/.panel accordingly.
 [[ -f "$TEMPLATE/package.json" ]] || die 'Extension-Vorlage nicht vorhanden'
-msg "Panel-Revision: $(git -C "$STAGING/panel" rev-parse HEAD)"
+msg "Panel-Revision: $(git -C "$STAGING/.panel" rev-parse HEAD)"
 msg "Vorlagen-Revision: $(git -C "$STAGING/official-extensions" rev-parse HEAD)"
 # Remove previous container-created root-owned files through a root container,
 # and only within this repo's known, dedicated staging subtree.
