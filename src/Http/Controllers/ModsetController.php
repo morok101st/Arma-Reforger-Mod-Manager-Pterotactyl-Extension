@@ -66,7 +66,7 @@ final class ModsetController extends Controller
     }
 
     /** @return list<array{id:int,name:string}> */
-    private function modsets(ExtensionSettingsRegistry $registry, bool $refresh = false): array
+    private function availableModsets(ExtensionSettingsRegistry $registry, bool $refresh = false): array
     {
         [$url, $username, $password] = $this->settings($registry);
         $key = 'armm-modsets:modsets:'.hash('sha256', $url."\0".$username."\0".$password);
@@ -120,7 +120,7 @@ final class ModsetController extends Controller
         $this->authorizeServerFiles($request, $server);
         $this->server($server->id);
         try {
-            return response()->json(['modsets' => $this->modsets($registry, $refresh)]);
+            return response()->json(['modsets' => $this->availableModsets($registry, $refresh)]);
         } catch (\Throwable $e) {
             report($e);
             return response()->json(['error' => $e->getMessage()], 502);
@@ -133,7 +133,7 @@ final class ModsetController extends Controller
         $data = $request->validate(['modset_id' => ['required','integer','min:1']]);
         $this->server($server->id);
         try {
-            $modset = collect($this->modsets($registry))->firstWhere('id', (int) $data['modset_id']);
+            $modset = collect($this->availableModsets($registry))->firstWhere('id', (int) $data['modset_id']);
             if ($modset === null) return response()->json(['error' => 'The selected modset is not available. Refresh the modset list and try again.'], 422);
             // Store the mapping and the last known display name in the extension database table.
             DB::table('ext_armm_modsets_assignments')->updateOrInsert(
