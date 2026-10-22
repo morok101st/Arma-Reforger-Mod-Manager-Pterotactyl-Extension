@@ -22,6 +22,7 @@ uses(IntegrationTestCase::class, DatabaseTransactions::class);
 beforeEach(function (): void {
     config([
         'extensions.enabled' => true,
+        'extensions.panel_version' => '2.0.0-beta.2',
         'extensions.directory' => base_path('tests/Fixtures/extensions'),
         'extensions.assets_directory' => base_path('tests/Fixtures/extensions-assets'),
     ]);
