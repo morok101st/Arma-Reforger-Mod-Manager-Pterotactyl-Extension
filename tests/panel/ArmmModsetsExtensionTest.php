@@ -78,9 +78,9 @@ function reforgerServer(): array
     return [$user, $server->fresh()];
 }
 
-function modsetsUrl(Server $server, string $suffix = ''): string
+function modsetsUrl(Server $server): string
 {
-    return "/api/client/servers/{$server->uuid}/extensions/armm-modsets/modsets{$suffix}";
+    return "/api/client/servers/{$server->uuid}/extensions/armm-modsets/modsets";
 }
 
 test('server owners can load modsets and the result is cached', function (): void {
@@ -104,7 +104,7 @@ test('a refresh bypasses the cached modset list', function (): void {
     armmResponses([['id' => 12, 'name' => 'Primary Modset']]);
 
     $this->actingAs($user)->getJson(modsetsUrl($server))->assertOk();
-    $this->actingAs($user)->getJson(modsetsUrl($server, '?refresh=1'))->assertOk();
+    $this->actingAs($user)->postJson(modsetsUrl($server).'/refresh')->assertOk();
 
     Http::assertSentCount(4);
 });

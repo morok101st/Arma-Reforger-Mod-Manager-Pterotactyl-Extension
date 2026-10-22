@@ -107,10 +107,20 @@ final class ModsetController extends Controller
 
     public function modsets(Request $request, Server $server, ExtensionSettingsRegistry $registry): JsonResponse
     {
+        return $this->respondWithModsets($request, $server, $registry, false);
+    }
+
+    public function refreshModsets(Request $request, Server $server, ExtensionSettingsRegistry $registry): JsonResponse
+    {
+        return $this->respondWithModsets($request, $server, $registry, true);
+    }
+
+    private function respondWithModsets(Request $request, Server $server, ExtensionSettingsRegistry $registry, bool $refresh): JsonResponse
+    {
         $this->authorizeServerFiles($request, $server);
         $this->server($server->id);
         try {
-            return response()->json(['modsets' => $this->modsets($registry, $request->boolean('refresh'))]);
+            return response()->json(['modsets' => $this->modsets($registry, $refresh)]);
         } catch (\Throwable $e) {
             report($e);
             return response()->json(['error' => $e->getMessage()], 502);

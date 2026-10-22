@@ -17,7 +17,7 @@ ARMM endpoints: `POST /api/auth/login`, `GET /api/modsets`, and `GET /api/modset
 ## Manual synchronization sequence
 
 1. Open the server's **ARMM Modsets** tab. The available modsets load automatically from the server-side cache.
-2. Click **Sync Modsets** to force a refresh from ARMM when you need the latest choices.
+2. Click **Refresh Modsets** to force a refresh from ARMM when you need the latest choices.
 3. Select the desired entry and save the assignment. The selected modset ID and last known name are stored for the server.
 4. Stop Reforger and click **Synchronize config.json**.
 5. Backend authenticates with ARMM, downloads the mod list, validates mod IDs, reads `config.json` via Wings, writes `config.json.armm.bak`, updates only `game.mods`, and records sync time/count.
@@ -34,6 +34,6 @@ sed -i 's/"true"/true/g; s/"false"/false/g' config.json && exec ./ArmaReforgerSe
 
 - Manual button only, no pre-start hook.
 - Server owners and subusers with the `file.update` permission can manage modsets. Extension-wide ARMM settings remain available only in the Admin area.
-- The ARMM modset list is cached server-side for 10 minutes. **Sync Modsets** bypasses that cache and refreshes it.
+- The ARMM modset list is cached server-side for 10 minutes. **Refresh Modsets** bypasses that cache and refreshes it.
 - The API list parser supports a plain list or `data` / `modsets` / `items` wrapper.
 - Sync is designed for offline game servers; no automatic restart or scheduling.

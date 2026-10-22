@@ -23,7 +23,7 @@ These instructions require an administrator account in a compatible Pterodactyl 
 
 1. Open **Admin → Extensions → ARMM Modset Manager** and configure the ARMM URL, username, password, TLS validation, and version preservation.
 2. Open an Arma Reforger server and select **ARMM Modsets**.
-3. Wait for the modset list to load, select a modset, and save the assignment. Click **Sync Modsets** only when you need to force a refresh from ARMM.
+3. Wait for the modset list to load, select a modset, and save the assignment. Click **Refresh Modsets** only when you need to force a refresh from ARMM.
 4. Stop the game server and make an additional backup of its `config.json` if required by your operating procedures.
 5. Click **Synchronize config.json**.
 6. Confirm that only `game.mods` changed and that `config.json.armm.bak` exists. Start the server and validate the selected mods.

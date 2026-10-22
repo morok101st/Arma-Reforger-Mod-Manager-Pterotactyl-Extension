@@ -12,7 +12,10 @@ export default function ArmmScreen() {
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [chosen, setChosen] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const [loadingSets, setLoadingSets] = useState(false);
+  const [assignmentError, setAssignmentError] = useState('');
+  const [modsetsError, setModsetsError] = useState('');
+  const [actionError, setActionError] = useState('');
   const request = useCallback(async (path: string, method: string = 'GET', body?: unknown) => {
     const response = await fetch(base + path, {
       method, credentials: 'same-origin', headers: {
@@ -26,23 +29,49 @@ export default function ArmmScreen() {
     return data;
   }, [base]);
   const loadAssignment = useCallback(async () => {
-    const data = await request('/assignment') as Assignment;
-    setAssignment(data); setChosen(data.modset_id ? String(data.modset_id) : '');
+    setAssignmentError('');
+    try {
+      const data = await request('/assignment') as Assignment;
+      setAssignment(data); setChosen(data.modset_id ? String(data.modset_id) : '');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setAssignmentError(message);
+      throw e;
+    }
+  }, [request]);
+  const loadSets = useCallback(async (refresh: boolean = false) => {
+    setLoadingSets(true); setModsetsError('');
+    try {
+      const data = await request(refresh ? '/modsets/refresh' : '/modsets', refresh ? 'POST' : 'GET');
+      setSets(data.modsets || []);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setModsetsError(message);
+      throw e;
+    } finally {
+      setLoadingSets(false);
+    }
   }, [request]);
   useEffect(() => {
-    loadAssignment().catch(e => setError(String(e)));
-    request('/modsets').then(data => setSets(data.modsets || [])).catch(e => setError(String(e)));
-  }, [loadAssignment, request]);
+    void loadAssignment().catch(() => undefined);
+    void loadSets().catch(() => undefined);
+  }, [loadAssignment, loadSets]);
   const run = async (action: () => Promise<void>) => {
-    setBusy(true); setError('');
-    try { await action(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    setBusy(true); setActionError('');
+    try { await action(); } catch (e) { setActionError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(false); }
   };
-  const loadSets = () => run(async () => {
-    const data = await request('/modsets?refresh=1');
-    setSets(data.modsets || []);
-    toast.success('ARMM modsets loaded');
-  });
+  const refreshSets = async () => {
+    setBusy(true); setActionError('');
+    try {
+      await loadSets(true);
+      toast.success('ARMM modsets refreshed');
+    } catch {
+      // loadSets provides a dedicated modset error message.
+    } finally {
+      setBusy(false);
+    }
+  };
   const assign = () => run(async () => {
     if (!chosen) throw new Error('Select a modset first.');
     await request('/assignment', 'PUT', { modset_id: Number(chosen) });
@@ -58,15 +87,18 @@ export default function ArmmScreen() {
   return <div style={{maxWidth:820, margin:'20px auto',padding:'20px',border:'1px solid #60646c',borderRadius:10}}>
     <h1 style={{fontSize:22,fontWeight:700,marginBottom:8}}>ARMM Modset Manager</h1>
     <p style={{marginBottom:20}}>Available modsets load automatically. Select one to assign it to this Reforger server.</p>
-    {error && <div role="alert" style={{padding:12,background:'#6b2020',color:'#fff',marginBottom:15,borderRadius:6}}>{error}</div>}
-    <button disabled={busy} onClick={loadSets} style={{padding:'9px 15px',border:'1px solid #aaa',borderRadius:6,marginBottom:16}}>Sync Modsets</button>
+    {assignmentError && <div role="alert" style={{padding:12,background:'#6b2020',color:'#fff',marginBottom:15,borderRadius:6}}>Could not load the current assignment: {assignmentError}</div>}
+    {modsetsError && <div role="alert" style={{padding:12,background:'#6b2020',color:'#fff',marginBottom:15,borderRadius:6}}>Could not load modsets: {modsetsError}</div>}
+    {actionError && <div role="alert" style={{padding:12,background:'#6b2020',color:'#fff',marginBottom:15,borderRadius:6}}>{actionError}</div>}
+    <button disabled={busy || loadingSets} onClick={refreshSets} style={{padding:'9px 15px',border:'1px solid #aaa',borderRadius:6,marginBottom:16}}>{loadingSets ? 'Loading modsets…' : 'Refresh Modsets'}</button>
+    {loadingSets && <p role="status">Loading available modsets…</p>}
     <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:16}}>
-      <select value={chosen} onChange={e=>setChosen(e.target.value)} disabled={busy} style={{minWidth:270,padding:10,background:'#222',color:'#fff',border:'1px solid #999',borderRadius:5}}>
+      <select value={chosen} onChange={e=>setChosen(e.target.value)} disabled={busy || loadingSets} style={{minWidth:270,padding:10,background:'#222',color:'#fff',border:'1px solid #999',borderRadius:5}}>
         <option value="">Select a modset</option>
         {assignment?.modset_id && !sets.some(x=>x.id === assignment.modset_id) && <option value={String(assignment.modset_id)}>{assignment.modset_name || `Modset ID ${assignment.modset_id}`} (saved)</option>}
         {sets.map(s=><option key={s.id} value={String(s.id)}>{s.name} (ID: {s.id})</option>)}
       </select>
-      <button disabled={busy || !chosen} onClick={assign} style={{padding:'9px 15px',border:'1px solid #aaa',borderRadius:6}}>Save assignment</button>
+      <button disabled={busy || loadingSets || !chosen} onClick={assign} style={{padding:'9px 15px',border:'1px solid #aaa',borderRadius:6}}>Save assignment</button>
       <button disabled={busy || !assignment?.modset_id} onClick={sync} style={{padding:'9px 15px',background:'#276dba',color:'white',borderRadius:6}}>Synchronize config.json</button>
     </div>
     <p>Current assignment: <strong>{assignment?.modset_id ? `${assignment.modset_name || 'Modset'} (ID: ${assignment.modset_id})` : 'none'}</strong></p>
