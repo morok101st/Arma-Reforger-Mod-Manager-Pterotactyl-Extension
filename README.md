@@ -2,7 +2,7 @@
 
 Native **ARMM Modsets** tab for Arma Reforger servers in Pterodactyl 2.x.
 
-**Version:** 1.1.2 · **Verified by operator:** Pterodactyl `v2.0.0-beta.2` (UI, modset listing, and config sync).
+**Version:** declared in [`extension.json`](extension.json) · **Verified by operator:** Pterodactyl `v2.0.0-beta.2` (UI, modset listing, and config sync).
 
 ## Features
 

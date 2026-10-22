@@ -15,7 +15,7 @@ chmod +x scripts/build.sh
 ./scripts/build.sh 2>&1 | tee armm-build.log
 ```
 
-Output: `build/armm-modsets-v1.1.2.zip`. This ZIP is the installable archive. Upload it through **Admin → Extensions** in Pterodactyl. Do not upload the repository ZIP or GitHub's automatically generated **Source code** ZIP as an extension.
+Output: `build/armm-modsets-v<version>.zip`, where `<version>` is read from `extension.json`. This ZIP is the installable archive. Upload it through **Admin → Extensions** in Pterodactyl. Do not upload the repository ZIP or GitHub's automatically generated **Source code** ZIP as an extension.
 
 The script clones Panel **tag `v2.0.0-beta.2`** into `.build/.panel` and the official extension examples into `.build/official-extensions`, then uses their tooling to build the UI. The Panel checkout is versioned; the extension example repository follows its current default branch, so builds are **not bit-for-bit reproducible** until that second dependency is pinned to a known commit. The script prints both revisions for auditing.
 

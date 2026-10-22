@@ -19,6 +19,12 @@ use Pterodactyl\Tests\Integration\IntegrationTestCase;
 
 uses(IntegrationTestCase::class, DatabaseTransactions::class);
 
+function extensionVersion(): string
+{
+    $manifest = json_decode(file_get_contents(base_path('tests/Fixtures/extensions/armm-modsets/extension.json')), true, 512, JSON_THROW_ON_ERROR);
+    return $manifest['version'];
+}
+
 beforeEach(function (): void {
     config([
         'extensions.enabled' => true,
@@ -42,7 +48,7 @@ beforeEach(function (): void {
 
     Extension::query()->updateOrCreate(
         ['identifier' => 'armm-modsets'],
-        ['version' => '1.1.2', 'enabled' => true],
+        ['version' => extensionVersion(), 'enabled' => true],
     );
 
     $this->app->forgetInstance(ExtensionRepository::class);
