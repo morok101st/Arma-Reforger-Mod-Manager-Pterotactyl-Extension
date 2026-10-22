@@ -48,7 +48,16 @@ beforeEach(function (): void {
     $this->app->forgetInstance(ExtensionProviderLoader::class);
     $repository = $this->app->make(ExtensionRepository::class);
     $repository->flushDiscovery();
-    $this->app->make(ExtensionProviderLoader::class)->registerProviders($repository->enabled());
+    $enabled = $repository->enabled();
+    if (! $enabled->has('armm-modsets')) {
+        throw new \RuntimeException('ARMM extension is not enabled: '.json_encode([
+            'discovery_errors' => $repository->discoveryErrors(),
+            'extension_error' => Extension::query()->where('identifier', 'armm-modsets')->value('error'),
+        ], JSON_THROW_ON_ERROR));
+    }
+    $this->app->make(ExtensionProviderLoader::class)->registerProviders($enabled);
+    $failure = Extension::query()->where('identifier', 'armm-modsets')->value('error');
+    if ($failure !== null) throw new \RuntimeException('ARMM extension failed to boot: '.$failure);
     $repository->settings('armm-modsets')->setMany([
         'url' => 'https://armm.example.test',
         'username' => 'test-user',
