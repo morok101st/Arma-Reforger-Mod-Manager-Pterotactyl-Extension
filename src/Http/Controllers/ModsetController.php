@@ -2,6 +2,7 @@
 namespace ArmmModsets\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
@@ -64,26 +65,14 @@ final class ModsetController extends Controller
         } finally { @unlink($cookie); }
     }
 
-    private function server(int $id): Server
+    /** @return list<array{id:int,name:string}> */
+    private function modsets(ExtensionSettingsRegistry $registry, bool $refresh = false): array
     {
-        $server = Server::query()->findOrFail($id);
-        abort_unless(str_contains((string) $server->startup, 'ArmaReforgerServer'), 422, 'This server is not an Arma Reforger server.');
-        return $server;
-    }
+        [$url, $username, $password] = $this->settings($registry);
+        $key = 'armm-modsets:modsets:'.hash('sha256', $url."\0".$username."\0".$password);
+        if ($refresh) Cache::forget($key);
 
-    public function assignment(Request $request, Server $server): JsonResponse
-    {
-        $this->authorizeServerFiles($request, $server);
-        $this->server($server->id);
-        $record = DB::table('ext_armm_modsets_assignments')->where('server_id', $server->id)->first();
-        return response()->json(['modset_id' => $record?->modset_id, 'last_count' => $record?->last_count, 'last_synced_at' => $record?->last_synced_at]);
-    }
-
-    public function modsets(Request $request, Server $server, ExtensionSettingsRegistry $registry): JsonResponse
-    {
-        $this->authorizeServerFiles($request, $server);
-        $this->server($server->id);
-        try {
+        return Cache::remember($key, now()->addMinutes(10), function () use ($registry): array {
             [, $data] = $this->armm($registry, '/api/modsets');
             // Accept either a plain list or a wrapped list. Never expose ARMM credentials.
             $list = array_is_list($data) ? $data : ($data['data'] ?? $data['modsets'] ?? $data['items'] ?? []);
@@ -97,24 +86,54 @@ final class ModsetController extends Controller
                     $results[] = ['id' => (int) $id, 'name' => $name];
                 }
             }
-            return response()->json(['modsets' => $results]);
+            return $results;
+        });
+    }
+
+    private function server(int $id): Server
+    {
+        $server = Server::query()->findOrFail($id);
+        abort_unless(str_contains((string) $server->startup, 'ArmaReforgerServer'), 422, 'This server is not an Arma Reforger server.');
+        return $server;
+    }
+
+    public function assignment(Request $request, Server $server): JsonResponse
+    {
+        $this->authorizeServerFiles($request, $server);
+        $this->server($server->id);
+        $record = DB::table('ext_armm_modsets_assignments')->where('server_id', $server->id)->first();
+        return response()->json(['modset_id' => $record?->modset_id, 'modset_name' => $record?->modset_name, 'last_count' => $record?->last_count, 'last_synced_at' => $record?->last_synced_at]);
+    }
+
+    public function modsets(Request $request, Server $server, ExtensionSettingsRegistry $registry): JsonResponse
+    {
+        $this->authorizeServerFiles($request, $server);
+        $this->server($server->id);
+        try {
+            return response()->json(['modsets' => $this->modsets($registry, $request->boolean('refresh'))]);
         } catch (\Throwable $e) {
             report($e);
             return response()->json(['error' => $e->getMessage()], 502);
         }
     }
 
-    public function assign(Request $request, Server $server): JsonResponse
+    public function assign(Request $request, Server $server, ExtensionSettingsRegistry $registry): JsonResponse
     {
         $this->authorizeServerFiles($request, $server);
         $data = $request->validate(['modset_id' => ['required','integer','min:1']]);
         $this->server($server->id);
-        // Laravel extension-specific per-server scoped settings.
-        // Store the mapping in Laravel's cache-independent database table.
-        \Illuminate\Support\Facades\DB::table('ext_armm_modsets_assignments')->updateOrInsert(
-            ['server_id' => $server->id], ['modset_id' => (int) $data['modset_id'], 'updated_at' => now()]
-        );
-        return response()->json(['ok' => true, 'server_id' => $server->id, 'modset_id' => (int) $data['modset_id']]);
+        try {
+            $modset = collect($this->modsets($registry))->firstWhere('id', (int) $data['modset_id']);
+            if ($modset === null) return response()->json(['error' => 'The selected modset is not available. Refresh the modset list and try again.'], 422);
+            // Store the mapping and the last known display name in the extension database table.
+            DB::table('ext_armm_modsets_assignments')->updateOrInsert(
+                ['server_id' => $server->id], ['modset_id' => (int) $data['modset_id'], 'modset_name' => $modset['name'], 'updated_at' => now()]
+            );
+            return response()->json(['ok' => true, 'server_id' => $server->id, 'modset_id' => (int) $data['modset_id']]);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['error' => $e->getMessage()], 502);
+        }
     }
 
     public function sync(Request $request, Server $server, ExtensionSettingsRegistry $registry, ReadsFileContents $reader, WritesFileContents $writer): JsonResponse
