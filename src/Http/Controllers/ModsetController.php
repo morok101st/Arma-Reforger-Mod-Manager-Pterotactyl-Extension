@@ -14,9 +14,17 @@ use RuntimeException;
 
 final class ModsetController extends Controller
 {
-    private function admin(Request $request): void
+    private function authorizeServerFiles(Request $request, Server $server): void
     {
-        abort_unless((bool) ($request->user()?->root_admin), 403);
+        $user = $request->user();
+        abort_unless($user !== null, 403);
+
+        $permissions = $user->permissionsOn($server);
+        abort_unless(
+            in_array('*', $permissions, true) ||
+            in_array('file.update', $permissions, true),
+            403
+        );
     }
 
     private function settings(ExtensionSettingsRegistry $registry): array
@@ -65,7 +73,7 @@ final class ModsetController extends Controller
 
     public function assignment(Request $request, Server $server): JsonResponse
     {
-        $this->admin($request);
+        $this->authorizeServerFiles($request, $server);
         $this->server($server->id);
         $record = DB::table('ext_armm_modsets_assignments')->where('server_id', $server->id)->first();
         return response()->json(['modset_id' => $record?->modset_id, 'last_count' => $record?->last_count, 'last_synced_at' => $record?->last_synced_at]);
@@ -73,7 +81,7 @@ final class ModsetController extends Controller
 
     public function modsets(Request $request, Server $server, ExtensionSettingsRegistry $registry): JsonResponse
     {
-        $this->admin($request);
+        $this->authorizeServerFiles($request, $server);
         $this->server($server->id);
         try {
             [, $data] = $this->armm($registry, '/api/modsets');
@@ -98,7 +106,7 @@ final class ModsetController extends Controller
 
     public function assign(Request $request, Server $server): JsonResponse
     {
-        $this->admin($request);
+        $this->authorizeServerFiles($request, $server);
         $data = $request->validate(['modset_id' => ['required','integer','min:1']]);
         $this->server($server->id);
         // Laravel extension-specific per-server scoped settings.
@@ -111,7 +119,7 @@ final class ModsetController extends Controller
 
     public function sync(Request $request, Server $server, ExtensionSettingsRegistry $registry, ReadsFileContents $reader, WritesFileContents $writer): JsonResponse
     {
-        $this->admin($request);
+        $this->authorizeServerFiles($request, $server);
         $this->server($server->id);
         $id = \Illuminate\Support\Facades\DB::table('ext_armm_modsets_assignments')->where('server_id', $server->id)->value('modset_id');
         if (!$id) return response()->json(['error' => 'Assign a modset first.'], 422);

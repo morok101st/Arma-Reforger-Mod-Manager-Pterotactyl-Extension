@@ -33,6 +33,6 @@ sed -i 's/"true"/true/g; s/"false"/false/g' config.json && exec ./ArmaReforgerSe
 ## Current limitations
 
 - Manual button only, no pre-start hook.
-- Backend operations require `root_admin`; non-admin server users cannot manage modsets.
+- Server owners and subusers with the `file.update` permission can manage modsets. Extension-wide ARMM settings remain available only in the Admin area.
 - The API list parser supports a plain list or `data` / `modsets` / `items` wrapper.
 - Sync is designed for offline game servers; no automatic restart or scheduling.
