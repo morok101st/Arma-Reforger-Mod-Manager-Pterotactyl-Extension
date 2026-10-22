@@ -39,7 +39,7 @@ import json,sys
 p=sys.argv[1]
 with open(p,encoding='utf-8') as f: d=json.load(f)
 d['name']='armm-modsets'
-d['version']='1.1.1'
+d['version']='1.1.2'
 with open(p,'w',encoding='utf-8') as f: json.dump(d,f,indent=2);f.write('\n')
 PYTHON
 msg 'Node 22: TypeScript + Vite Build'
@@ -53,7 +53,7 @@ msg 'PHP syntax check'
 docker run --rm -v "$STAGING/armm-modsets:/ext:ro" php:8.4-cli sh -ec \
   'find /ext/src /ext/routes /ext/database -type f -name "*.php" -exec php -l {} \;'
 msg 'Creating installation archive'
-(cd "$STAGING/armm-modsets" && zip -qr "$TARGET/armm-modsets-v1.1.1.zip" \
+(cd "$STAGING/armm-modsets" && zip -qr "$TARGET/armm-modsets-v1.1.2.zip" \
   extension.json src routes database dist README.md)
-msg "Complete: $TARGET/armm-modsets-v1.1.1.zip"
+msg "Complete: $TARGET/armm-modsets-v1.1.2.zip"
 msg 'Install the package through the Pterodactyl Extensions UI.'
