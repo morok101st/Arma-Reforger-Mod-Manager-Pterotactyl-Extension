@@ -48,6 +48,9 @@ scripts/build.sh       Isolated Docker-based build
 docs/BUILD.md          Maintainer build instructions
 docs/INSTALL.md        UI installation, update, verification, and rollback
 docs/CONFIGURATION.md  ARMM settings and usage
+docs/TESTING.md        Panel integration-test instructions
+tests/                 Pterodactyl Pest integration tests
+scripts/test.sh        Test runner for a prepared Panel checkout
 .github/workflows/     Build artifact and release publishing workflow
 ```
 

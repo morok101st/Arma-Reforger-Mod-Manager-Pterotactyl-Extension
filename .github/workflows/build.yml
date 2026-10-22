@@ -13,7 +13,54 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: testing
+          MYSQL_USER: pterodactyl
+          MYSQL_PASSWORD: pterodactyl
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout extension
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, mbstring, pdo_mysql, zip
+          coverage: none
+
+      - name: Prepare Pterodactyl test environment
+        run: |
+          git clone --depth 1 --branch v2.0.0-beta.2 https://github.com/pterodactyl/panel.git .ci/panel
+          cp .ci/panel/.env.example .ci/panel/.env
+          sed -i \
+            -e 's/^APP_ENV=.*/APP_ENV=testing/' \
+            -e 's/^DB_DATABASE=.*/DB_DATABASE=testing/' \
+            -e 's/^DB_USERNAME=.*/DB_USERNAME=pterodactyl/' \
+            -e 's/^DB_PASSWORD=.*/DB_PASSWORD=pterodactyl/' \
+            .ci/panel/.env
+          composer --working-dir=.ci/panel install --no-interaction --prefer-dist --no-progress
+          php .ci/panel/artisan key:generate --force
+
+      - name: Run extension integration tests
+        run: PANEL_DIR="$GITHUB_WORKSPACE/.ci/panel" ./scripts/test.sh
+
   build:
+    needs: test
     runs-on: ubuntu-latest
 
     permissions:
