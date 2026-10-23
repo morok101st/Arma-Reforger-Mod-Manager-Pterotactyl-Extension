@@ -24,6 +24,37 @@ Native **ARMM Modsets** tab for Arma Reforger servers in Pterodactyl 2.x.
 
 Use the release asset, not GitHub's automatically generated **Source code** ZIP. The latter is a repository snapshot and is not an installable extension package. Detailed instructions are in [Install / Update](docs/INSTALL.md).
 
+## User workflow
+
+```mermaid
+flowchart TD
+    A[Administrator installs and enables the release package] --> B[Administrator configures ARMM URL and credentials]
+    B --> C[User with file.update opens ARMM Modsets]
+    C --> D[Load saved assignment]
+    C --> E[Load available modsets]
+    E --> F{10-minute cache available?}
+    F -- Yes --> G[Show cached modset list]
+    F -- No --> H[Authenticate with ARMM]
+    H --> I[GET /api/modsets]
+    I --> J[Cache list for 10 minutes]
+    J --> G
+    G --> K{Refresh Modsets clicked?}
+    K -- Yes --> L[POST /modsets/refresh]
+    L --> H
+    K -- No --> M[Select a modset and save assignment]
+    M --> N[Validate selected ID against available list]
+    N --> O[Store server ID, modset ID, and display name]
+    O --> P[Stop the Reforger server]
+    P --> Q[Synchronize config.json]
+    Q --> R[GET /api/modsets/{id}/export]
+    R --> S[Read config.json through Wings]
+    S --> T[Write config.json.armm.bak through Wings]
+    T --> U[Replace only game.mods in config.json]
+    U --> V[Start server and validate mods]
+```
+
+The modset list loads automatically when the tab opens. **Refresh Modsets** bypasses the cache and fetches the current list from ARMM. `config.json` synchronization is always manual and should be performed with the game server stopped.
+
 ## Requirements
 
 ### Panel operators
