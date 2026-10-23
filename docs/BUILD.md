@@ -31,6 +31,6 @@ To retry, run the script again. It isolates/replaces only `.build/armm-modsets`.
 
 ## Validation and release publishing
 
-Before distributing a self-built package, unpack it and confirm it contains `extension.json`, `src`, `routes`, `database`, and `dist/client.js`. Install and test the package in a non-production Panel through the Extensions UI before using it in production.
+Before distributing a self-built package, unpack it and confirm it contains `extension.json`, `src`, `routes`, `database`, `dist/client.js`, `README.md`, and `LICENSE`. Install and test the package in a non-production Panel through the Extensions UI before using it in production.
 
 GitHub Actions builds the package on pushes, pull requests, and manual runs. A tag matching `v*` additionally runs a separate release job, the only job with write permissions, which creates a build provenance attestation and publishes the ZIP and its `.sha256` file as GitHub Release assets. All actions are pinned to commit SHAs; Dependabot proposes updates weekly.

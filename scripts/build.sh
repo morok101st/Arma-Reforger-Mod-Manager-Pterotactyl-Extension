@@ -57,7 +57,7 @@ for f in package.json package-lock.json vite.config.mjs tsconfig.json postcss.co
 done
 cp "$ROOT/extension.json" "$STAGING/armm-modsets/"
 cp -R "$ROOT/src" "$ROOT/routes" "$ROOT/database" "$STAGING/armm-modsets/"
-cp "$ROOT/README.md" "$STAGING/armm-modsets/"
+cp "$ROOT/README.md" "$ROOT/LICENSE" "$STAGING/armm-modsets/"
 python3 - "$STAGING/armm-modsets/package.json" "$VERSION" <<'PYTHON'
 import json,sys
 p,version=sys.argv[1:]
@@ -78,7 +78,7 @@ docker run --rm -v "$STAGING/armm-modsets:/ext:ro" "$PHP_IMAGE" sh -ec \
   'find /ext/src /ext/routes /ext/database -type f -name "*.php" -exec php -l {} \;'
 msg 'Creating installation archive'
 (cd "$STAGING/armm-modsets" && zip -qr "$TARGET/armm-modsets-v$VERSION.zip" \
-  extension.json src routes database dist README.md)
+  extension.json src routes database dist README.md LICENSE)
 (cd "$TARGET" && sha256sum "armm-modsets-v$VERSION.zip" > "armm-modsets-v$VERSION.zip.sha256")
 msg "Complete: $TARGET/armm-modsets-v$VERSION.zip"
 msg 'Install the package through the Pterodactyl Extensions UI.'
