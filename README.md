@@ -46,7 +46,7 @@ flowchart TD
     N --> O[Store server ID, modset ID, and display name]
     O --> P[Stop the Reforger server]
     P --> Q[Synchronize config.json]
-    Q --> R[GET /api/modsets/{id}/export]
+    Q --> R["GET /api/modsets/{id}/export"]
     R --> S[Read config.json through Wings]
     S --> T[Write config.json.armm.bak through Wings]
     T --> U[Replace only game.mods in config.json]
