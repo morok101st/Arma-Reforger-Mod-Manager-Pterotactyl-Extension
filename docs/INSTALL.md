@@ -26,7 +26,7 @@ These instructions require an administrator account in a compatible Pterodactyl 
 3. Wait for the modset list to load, select a modset, and save the assignment. Click **Refresh Modsets** only when you need to force a refresh from ARMM.
 4. Stop the game server and make an additional backup of its `config.json` if required by your operating procedures.
 5. Click **Synchronize config.json**.
-6. Confirm that only `game.mods` changed and that `config.json.armm.bak` exists. Start the server and validate the selected mods.
+6. Confirm that only `game.mods` changed and that a `config.json.armm-<YYYYMMDD-HHMMSS>.bak` backup exists. Start the server and validate the selected mods.
 
 The sync is manual; starting a server does **not** fetch or apply a new modset.
 
@@ -36,7 +36,7 @@ The sync is manual; starting a server does **not** fetch or apply a new modset.
 - If a release malfunctions, disable the extension in **Admin → Extensions**.
 - To roll back, install or update to a previously working release package through the same UI, then enable it and verify the version.
 - Restore the Panel database backup if the update changed data unexpectedly.
-- Restore a game configuration from `config.json.armm.bak` only when appropriate.
+- Restore a game configuration from the matching `config.json.armm-<YYYYMMDD-HHMMSS>.bak` backup only when appropriate.
 - Avoid removing the extension during rollback: removal can delete extension settings or data.
 
 ## Building your own package

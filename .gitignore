@@ -1,8 +1,6 @@
 # Build products / dependencies
 node_modules/
 dist/
-.panel/
-.official-extensions/
 .build/
 build/
 *.pteroext

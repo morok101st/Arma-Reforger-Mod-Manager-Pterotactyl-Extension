@@ -1,64 +1,63 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useCurrentServerRequired, toast } from '@pterodactyl/sdk';
+import { Alert, Button, Dialog, Select, http, httpErrorToHuman, toast, useCurrentServerRequired } from '@pterodactyl/sdk';
 
 interface Modset { id: number; name: string }
 interface Assignment { modset_id: number | null; modset_name: string | null; last_count: number | null; last_synced_at: string | null }
+interface ModsetList { modsets: Modset[]; tls_verify: boolean }
+
+// Requests that reach ARMM log in first and may take longer than the panel's default timeout.
+const ARMM_TIMEOUT = 60000;
 
 export default function ArmmScreen() {
   const server = useCurrentServerRequired();
-  const identifier = server.attributes.identifier;
-  const base = `/api/client/servers/${encodeURIComponent(identifier)}/extensions/armm-modsets`;
+  const base = `/api/client/servers/${encodeURIComponent(server.attributes.identifier)}/extensions/armm-modsets`;
   const [sets, setSets] = useState<Modset[]>([]);
+  const [tlsVerify, setTlsVerify] = useState(true);
   const [assignment, setAssignment] = useState<Assignment | null>(null);
-  const [chosen, setChosen] = useState('');
+  const [chosen, setChosen] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadingSets, setLoadingSets] = useState(false);
+  const [confirmSync, setConfirmSync] = useState(false);
   const [assignmentError, setAssignmentError] = useState('');
   const [modsetsError, setModsetsError] = useState('');
   const [actionError, setActionError] = useState('');
-  const request = useCallback(async (path: string, method: string = 'GET', body?: unknown) => {
-    const response = await fetch(base + path, {
-      method, credentials: 'same-origin', headers: {
-        'Accept':'application/json', 'Content-Type':'application/json',
-        'X-Requested-With':'XMLHttpRequest',
-        'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-      }, body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || data.message || `HTTP ${response.status}`);
-    return data;
-  }, [base]);
+
   const loadAssignment = useCallback(async () => {
     setAssignmentError('');
     try {
-      const data = await request('/assignment') as Assignment;
-      setAssignment(data); setChosen(data.modset_id ? String(data.modset_id) : '');
+      const { data } = await http.get<Assignment>(`${base}/assignment`);
+      setAssignment(data);
+      setChosen(data.modset_id);
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      setAssignmentError(message);
+      setAssignmentError(httpErrorToHuman(e));
       throw e;
     }
-  }, [request]);
+  }, [base]);
+
   const loadSets = useCallback(async (refresh: boolean = false) => {
     setLoadingSets(true); setModsetsError('');
     try {
-      const data = await request(refresh ? '/modsets/refresh' : '/modsets', refresh ? 'POST' : 'GET');
+      const { data } = refresh
+        ? await http.post<ModsetList>(`${base}/modsets/refresh`, undefined, { timeout: ARMM_TIMEOUT })
+        : await http.get<ModsetList>(`${base}/modsets`, { timeout: ARMM_TIMEOUT });
       setSets(data.modsets || []);
+      setTlsVerify(data.tls_verify !== false);
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      setModsetsError(message);
+      setModsetsError(httpErrorToHuman(e));
       throw e;
     } finally {
       setLoadingSets(false);
     }
-  }, [request]);
+  }, [base]);
+
   useEffect(() => {
     void loadAssignment().catch(() => undefined);
     void loadSets().catch(() => undefined);
   }, [loadAssignment, loadSets]);
+
   const run = async (action: () => Promise<void>) => {
     setBusy(true); setActionError('');
-    try { await action(); } catch (e) { setActionError(e instanceof Error ? e.message : String(e)); }
+    try { await action(); } catch (e) { setActionError(httpErrorToHuman(e)); }
     finally { setBusy(false); }
   };
   const refreshSets = async () => {
@@ -74,35 +73,52 @@ export default function ArmmScreen() {
   };
   const assign = () => run(async () => {
     if (!chosen) throw new Error('Select a modset first.');
-    await request('/assignment', 'PUT', { modset_id: Number(chosen) });
+    await http.put(`${base}/assignment`, { modset_id: chosen }, { timeout: ARMM_TIMEOUT });
     await loadAssignment();
     toast.success('Modset assignment saved');
   });
   const sync = () => run(async () => {
-    if (!window.confirm('Replace game.mods in config.json now? The server should be stopped.')) return;
-    const data = await request('/sync', 'POST');
+    setConfirmSync(false);
+    const { data } = await http.post<{ count: number }>(`${base}/sync`, undefined, { timeout: ARMM_TIMEOUT });
     await loadAssignment();
     toast.success(`${data.count} mods applied to config.json`);
   });
-  return <div style={{maxWidth:820, margin:'20px auto',padding:'20px',border:'1px solid #60646c',borderRadius:10}}>
-    <h1 style={{fontSize:22,fontWeight:700,marginBottom:8}}>ARMM Modset Manager</h1>
-    <p style={{marginBottom:20}}>Available modsets load automatically. Select one to assign it to this Reforger server.</p>
-    {assignmentError && <div role="alert" style={{padding:12,background:'#6b2020',color:'#fff',marginBottom:15,borderRadius:6}}>Could not load the current assignment: {assignmentError}</div>}
-    {modsetsError && <div role="alert" style={{padding:12,background:'#6b2020',color:'#fff',marginBottom:15,borderRadius:6}}>Could not load modsets: {modsetsError}</div>}
-    {actionError && <div role="alert" style={{padding:12,background:'#6b2020',color:'#fff',marginBottom:15,borderRadius:6}}>{actionError}</div>}
-    <button disabled={busy || loadingSets} onClick={refreshSets} style={{padding:'9px 15px',border:'1px solid #aaa',borderRadius:6,marginBottom:16}}>{loadingSets ? 'Loading modsets…' : 'Refresh Modsets'}</button>
-    {loadingSets && <p role="status">Loading available modsets…</p>}
-    <div style={{display:'flex',gap:12,flexWrap:'wrap',marginBottom:16}}>
-      <select value={chosen} onChange={e=>setChosen(e.target.value)} disabled={busy || loadingSets} style={{minWidth:270,padding:10,background:'#222',color:'#fff',border:'1px solid #999',borderRadius:5}}>
-        <option value="">Select a modset</option>
-        {assignment?.modset_id && !sets.some(x=>x.id === assignment.modset_id) && <option value={String(assignment.modset_id)}>{assignment.modset_name || `Modset ID ${assignment.modset_id}`} (saved)</option>}
-        {sets.map(s=><option key={s.id} value={String(s.id)}>{s.name} (ID: {s.id})</option>)}
-      </select>
-      <button disabled={busy || loadingSets || !chosen} onClick={assign} style={{padding:'9px 15px',border:'1px solid #aaa',borderRadius:6}}>Save assignment</button>
-      <button disabled={busy || !assignment?.modset_id} onClick={sync} style={{padding:'9px 15px',background:'#276dba',color:'white',borderRadius:6}}>Synchronize config.json</button>
+
+  const options = [
+    ...(assignment?.modset_id && !sets.some(x => x.id === assignment.modset_id)
+      ? [{ value: assignment.modset_id, label: `${assignment.modset_name || `Modset ID ${assignment.modset_id}`} (saved)` }]
+      : []),
+    ...sets.map(s => ({ value: s.id, label: `${s.name} (ID: ${s.id})` })),
+  ];
+
+  return <div style={{ maxWidth: 820, margin: '20px auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div>
+      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>ARMM Modset Manager</h1>
+      <p>Available modsets load automatically. Select one to assign it to this Reforger server.</p>
     </div>
-    <p>Current assignment: <strong>{assignment?.modset_id ? `${assignment.modset_name || 'Modset'} (ID: ${assignment.modset_id})` : 'none'}</strong></p>
-    <p>Last sync: {assignment?.last_synced_at || 'never'} · Mods: {assignment?.last_count ?? '–'}</p>
-    <p style={{fontSize:12,opacity:.8,marginTop:14}}>This button updates game.mods directly through Wings. Automatic synchronization on server start is not enabled.</p>
+    {!tlsVerify && <Alert type={'warning'}>TLS certificate verification for ARMM is disabled. Ask an administrator to enable it in Admin → Extensions.</Alert>}
+    {assignmentError && <Alert type={'danger'} title={'Could not load the current assignment'}>{assignmentError}</Alert>}
+    {modsetsError && <Alert type={'danger'} title={'Could not load modsets'}>{modsetsError}</Alert>}
+    {actionError && <Alert type={'danger'}>{actionError}</Alert>}
+    <div>
+      <Button isSecondary isLoading={loadingSets} disabled={busy} onClick={refreshSets}>Refresh Modsets</Button>
+    </div>
+    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ minWidth: 270, flex: 1 }}>
+        <Select value={chosen} onChange={value => setChosen(Number(value))} options={options}
+          placeholder={'Select a modset'} disabled={busy || loadingSets} />
+      </div>
+      <Button isSecondary disabled={busy || loadingSets || !chosen} onClick={assign}>Save assignment</Button>
+      <Button disabled={busy || !assignment?.modset_id} onClick={() => setConfirmSync(true)}>Synchronize config.json</Button>
+    </div>
+    <div>
+      <p>Current assignment: <strong>{assignment?.modset_id ? `${assignment.modset_name || 'Modset'} (ID: ${assignment.modset_id})` : 'none'}</strong></p>
+      <p>Last sync: {assignment?.last_synced_at || 'never'} · Mods: {assignment?.last_count ?? '–'}</p>
+      <p style={{ fontSize: 12, opacity: .8, marginTop: 14 }}>This button updates game.mods directly through Wings. Automatic synchronization on server start is not enabled.</p>
+    </div>
+    <Dialog.Confirm open={confirmSync} onClose={() => setConfirmSync(false)} pending={busy}
+      title={'Synchronize config.json?'} confirm={'Synchronize'} onConfirmed={sync}>
+      game.mods in config.json will be replaced with the assigned modset. The server must be stopped; a timestamped backup of the current file is created first.
+    </Dialog.Confirm>
   </div>;
 }
