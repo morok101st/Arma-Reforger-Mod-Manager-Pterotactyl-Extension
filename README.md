@@ -9,10 +9,10 @@ Native **ARMM Modsets** tab for Arma Reforger servers in Pterodactyl 2.x.
 - Configure ARMM server URL and credentials centrally in **Admin → Extensions**.
 - Fetch accessible modsets from `GET /api/modsets` and select one per server.
 - Store per-server assignments in `ext_armm_modsets_assignments`.
-- **Synchronize config.json** reads the selected modset's `/api/modsets/{id}/export`, backs up `config.json` as `config.json.armm.bak`, and replaces only `game.mods` through Wings.
+- **Synchronize config.json** reads the selected modset's `/api/modsets/{id}/export`, backs up `config.json` as `config.json.armm-<YYYYMMDD-HHMMSS>.bak`, and replaces only `game.mods` through Wings.
 - Preserve mod version fields returned by ARMM when the corresponding setting is enabled.
 
-**Not supported:** automatic synchronization on every server start. This extension synchronizes only when the button is clicked, and sync should be performed with the game server stopped.
+**Not supported:** automatic synchronization on every server start. This extension synchronizes only when the button is clicked, and the sync is refused while the game server is running.
 
 ## Quick start
 
@@ -48,7 +48,7 @@ flowchart TD
     class B,G,I,J,K,N userAction;
 ```
 
-Blue nodes are user actions. The modset list loads automatically when the tab opens. **Refresh Modsets** bypasses the 10-minute cache and fetches the current list from ARMM. `config.json` synchronization is always manual and should be performed with the game server stopped.
+Blue nodes are user actions. The modset list loads automatically when the tab opens. **Refresh Modsets** bypasses the 10-minute cache and fetches the current list from ARMM. `config.json` synchronization is always manual and is refused while the game server is running.
 
 ## Requirements
 
@@ -82,7 +82,11 @@ scripts/test.sh        Test runner for a prepared Panel checkout
 
 ## Security notes
 
-Download packages only from the official GitHub Releases page. Never commit `.env`, login cookies, API passwords, Laravel `APP_KEY`, Wings tokens, real server `config.json`, or database dumps. Extension configuration resides within the Panel, not in this repository. The server receives only the mod list via the file API. `tls_verify=1` is recommended.
+Download packages only from the official GitHub Releases page. Never commit `.env`, login cookies, API passwords, Laravel `APP_KEY`, Wings tokens, real server `config.json`, or database dumps. Extension configuration resides within the Panel, not in this repository. The server receives only the mod list via the file API. `tls_verify=1` is recommended; the tab shows a warning while it is disabled.
+
+All servers share the single ARMM account configured by the administrator: anyone with the `file.update` permission on an Arma Reforger server can list and assign every modset that account can access. Use a dedicated ARMM account limited to the modsets your Panel users may use. Refreshing the modset list and synchronizing are rate-limited per user.
+
+Report vulnerabilities as described in [SECURITY.md](SECURITY.md). Release ZIPs ship with a `.sha256` checksum and a build provenance attestation.
 
 ## Support scope
 

@@ -1,18 +1,26 @@
 <?php
 namespace ArmmModsets;
 
+use ArmmModsets\Armm\ArmmSettings;
 use Pterodactyl\Extensions\ExtensionProvider;
 use Pterodactyl\Services\Extensions\ExtensionSettingDefinition;
 use Pterodactyl\Services\Extensions\ExtensionSettingsDefinition;
+use Pterodactyl\Services\Extensions\ExtensionSettingsRegistry;
 
 final class ArmmModsetsProvider extends ExtensionProvider
 {
+    public function register(): void
+    {
+        // Resolved per use, so changed settings apply immediately and invalid ones surface as ArmmException.
+        $this->app->bind(ArmmSettings::class, fn ($app): ArmmSettings => ArmmSettings::fromRegistry($app->make(ExtensionSettingsRegistry::class)));
+    }
+
     public function boot(): void
     {
         $this->registerApiRoutes();
         $this->loadExtensionMigrations();
         $this->registerSettings(new ExtensionSettingsDefinition($this->settings(), [
-            ExtensionSettingDefinition::make('url', 'url', '', ['required', 'url', 'max:512'])
+            ExtensionSettingDefinition::make('url', 'url', '', ['required', 'url', 'starts_with:https://', 'max:512'])
                 ->label('ARMM URL')->help('HTTPS base URL of ARMM, without /api.'),
             ExtensionSettingDefinition::make('username', 'username', '', ['required', 'string', 'max:255'])
                 ->label('ARMM API user'),

@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Pterodactyl\Contracts\Files\ReadsFileContents;
 use Pterodactyl\Contracts\Files\WritesFileContents;
+use Pterodactyl\Contracts\Servers\ReadsServerState;
+use Pterodactyl\Data\ServerState;
 use Pterodactyl\Models\Extension;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Services\Extensions\ExtensionProviderLoader;
@@ -163,7 +165,33 @@ test('saving a modset that is not available is rejected', function (): void {
         ->assertJsonPath('error', 'The selected modset is not available. Refresh the modset list and try again.');
 });
 
-test('syncing replaces only game mods and creates a backup', function (): void {
+/**
+ * Bind fake Wings file and power-state access for sync tests and return the writer,
+ * whose $files collects everything written.
+ */
+function fakeWings(string $config, string $state = 'offline'): object
+{
+    $app = app();
+    $app->instance(ReadsServerState::class, new class($state) implements ReadsServerState {
+        public function __construct(private readonly string $state) {}
+        public function read(Server $server): ServerState { return new ServerState($this->state, false, 0, 0, 0, 0, 0, 0); }
+    });
+    $app->instance(ReadsFileContents::class, new class($config) implements ReadsFileContents {
+        public function __construct(private readonly string $contents) {}
+        public function read(Server $server, string $path, ?int $maxBytes = null): string { return $this->contents; }
+    });
+    $writer = new class implements WritesFileContents {
+        /** @var array<string, string> */
+        public array $files = [];
+        public function write(Server $server, string $path, string $contents): void { $this->files[$path] = $contents; }
+    };
+    $app->instance(WritesFileContents::class, $writer);
+
+    return $writer;
+}
+
+function assignedReforgerServer(): array
+{
     [$user, $server] = reforgerServer();
     DB::table('ext_armm_modsets_assignments')->insert([
         'server_id' => $server->id,
@@ -171,34 +199,105 @@ test('syncing replaces only game mods and creates a backup', function (): void {
         'modset_name' => 'Primary Modset',
         'updated_at' => now(),
     ]);
-    $original = "{\n  \"game\": {\"mods\": []},\n  \"name\": \"Test server\"\n}\n";
-    $reader = new class($original) implements ReadsFileContents {
-        public function __construct(private readonly string $contents) {}
-        public function read(Server $server, string $path, ?int $maxBytes = null): string { return $this->contents; }
-    };
-    $writer = new class implements WritesFileContents {
-        /** @var array<string, string> */
-        public array $files = [];
-        public function write(Server $server, string $path, string $contents): void { $this->files[$path] = $contents; }
-    };
-    $this->app->instance(ReadsFileContents::class, $reader);
-    $this->app->instance(WritesFileContents::class, $writer);
+
+    return [$user, $server];
+}
+
+function armmExport(array $mods): void
+{
     Http::fake([
         'https://armm.example.test/api/auth/login' => Http::response([], 200),
-        'https://armm.example.test/api/modsets/12/export' => Http::response([
-            ['modId' => '0123456789ABCDEF', 'name' => 'Test mod', 'version' => '1.0.0'],
-        ], 200),
+        'https://armm.example.test/api/modsets/12/export' => Http::response($mods, 200),
     ]);
+}
 
-    $this->actingAs($user)
-        ->postJson("/api/client/servers/{$server->uuid}/extensions/armm-modsets/sync")
+function syncUrl(Server $server): string
+{
+    return "/api/client/servers/{$server->uuid}/extensions/armm-modsets/sync";
+}
+
+test('syncing replaces only game mods and creates a backup', function (): void {
+    [$user, $server] = assignedReforgerServer();
+    $original = "{\n  \"game\": {\"mods\": []},\n  \"name\": \"Test server\"\n}\n";
+    $writer = fakeWings($original);
+    armmExport([['modId' => '0123456789ABCDEF', 'name' => 'Test mod', 'version' => '1.0.0']]);
+
+    $this->actingAs($user)->postJson(syncUrl($server))
         ->assertOk()
         ->assertJsonPath('count', 1);
 
-    expect($writer->files['config.json.armm.bak'])->toBe($original);
+    $backups = array_values(array_filter(array_keys($writer->files), fn (string $path): bool => preg_match('/^config\.json\.armm-\d{8}-\d{6}\.bak$/', $path) === 1));
+    expect($backups)->toHaveCount(1);
+    expect($writer->files[$backups[0]])->toBe($original);
     expect(json_decode($writer->files['config.json'], true, 512, JSON_THROW_ON_ERROR))
         ->toBe([
             'game' => ['mods' => [['modId' => '0123456789ABCDEF', 'name' => 'Test mod', 'version' => '1.0.0']]],
             'name' => 'Test server',
         ]);
+    $this->assertDatabaseHas('ext_armm_modsets_assignments', ['server_id' => $server->id, 'last_count' => 1]);
+});
+
+test('syncing is rejected while the server is running', function (): void {
+    [$user, $server] = assignedReforgerServer();
+    $writer = fakeWings('{"game":{"mods":[]}}', 'running');
+    armmExport([['modId' => '0123456789ABCDEF']]);
+
+    $this->actingAs($user)->postJson(syncUrl($server))
+        ->assertStatus(409)
+        ->assertJsonPath('error', 'Stop the server before synchronizing config.json.');
+
+    expect($writer->files)->toBe([]);
+});
+
+test('syncing rejects an export with an invalid mod id', function (): void {
+    [$user, $server] = assignedReforgerServer();
+    $writer = fakeWings('{"game":{"mods":[]}}');
+    armmExport([['modId' => '../../etc/passwd']]);
+
+    $this->actingAs($user)->postJson(syncUrl($server))
+        ->assertStatus(502)
+        ->assertJsonPath('error', 'ARMM export contains an invalid modId.');
+
+    expect($writer->files)->toBe([]);
+});
+
+test('syncing rejects a config without a game object', function (): void {
+    [$user, $server] = assignedReforgerServer();
+    $writer = fakeWings('{"name":"Test server"}');
+    armmExport([['modId' => '0123456789ABCDEF']]);
+
+    $this->actingAs($user)->postJson(syncUrl($server))
+        ->assertUnprocessable()
+        ->assertJsonPath('error', 'config.json must contain a game object.');
+
+    expect($writer->files)->toBe([]);
+});
+
+test('unexpected errors are not exposed to the client', function (): void {
+    [$user, $server] = assignedReforgerServer();
+    fakeWings('{"game":{"mods":[]}}');
+    $this->app->instance(WritesFileContents::class, new class implements WritesFileContents {
+        public function write(Server $server, string $path, string $contents): void { throw new \RuntimeException('secret internal detail /srv/daemon'); }
+    });
+    armmExport([['modId' => '0123456789ABCDEF']]);
+
+    $response = $this->actingAs($user)->postJson(syncUrl($server))->assertStatus(500);
+
+    expect($response->json('error'))->toBe('Unexpected error. Details were written to the panel log.');
+});
+
+test('armm authentication failures are reported to the user', function (): void {
+    [$user, $server] = reforgerServer();
+    Http::fake(['https://armm.example.test/api/auth/login' => Http::response([], 401)]);
+
+    $this->actingAs($user)->getJson(modsetsUrl($server))
+        ->assertStatus(502)
+        ->assertJsonPath('error', 'ARMM authentication failed (HTTP 401).');
+});
+
+test('modset actions are rejected for servers that are not Arma Reforger', function (): void {
+    [$user, $server] = $this->generateTestAccount();
+    $server->update(['startup' => './minecraft']);
+
+    $this->actingAs($user)->getJson(modsetsUrl($server))->assertUnprocessable();
 });

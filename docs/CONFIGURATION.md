@@ -6,8 +6,8 @@ Install and enable the extension through **Admin → Extensions** before configu
 
 | Setting | Purpose | Recommended |
 |---|---|---|
-| `url` | ARMM HTTPS base URL (without `/api`) | Valid HTTPS URL |
-| `username` | ARMM API account | Dedicated `webinterface` account with modset access |
+| `url` | ARMM HTTPS base URL (without `/api`); must start with `https://` | Valid HTTPS URL |
+| `username` | ARMM API account, shared by all servers | Dedicated account limited to the modsets Panel users may use |
 | `password` | ARMM password | Secret; never commit |
 | `tls_verify` | Validate certificate | `1` |
 | `keep_versions` | Keep `version` from ARMM export | `1` (ARMM controls versions) |
@@ -19,10 +19,10 @@ ARMM endpoints: `POST /api/auth/login`, `GET /api/modsets`, and `GET /api/modset
 1. Open the server's **ARMM Modsets** tab. The available modsets load automatically from the server-side cache.
 2. Click **Refresh Modsets** to force a refresh from ARMM when you need the latest choices.
 3. Select the desired entry and save the assignment. The selected modset ID and last known name are stored for the server.
-4. Stop Reforger and click **Synchronize config.json**.
-5. Backend authenticates with ARMM, downloads the mod list, validates mod IDs, reads `config.json` via Wings, writes `config.json.armm.bak`, updates only `game.mods`, and records sync time/count.
+4. Stop Reforger and click **Synchronize config.json**. The sync is refused while the server is running.
+5. Backend authenticates with ARMM, downloads the mod list, validates mod IDs, reads `config.json` via Wings, writes a timestamped backup `config.json.armm-<YYYYMMDD-HHMMSS>.bak`, updates only `game.mods`, and records sync time/count.
 
-Your other settings (e.g., ACE settings, server name, scenario) are left structurally unchanged. The JSON file may be reformatted during serialization. Only the latest `config.json.armm.bak` is retained, so keep separate historical backups if needed.
+Your other settings (e.g., ACE settings, server name, scenario) are left structurally unchanged. The JSON file may be reformatted during serialization. Every sync creates a new backup file; delete old backups through the file manager when they are no longer needed.
 
 The standard Reforger startup may remain:
 
