@@ -91,3 +91,7 @@ Report vulnerabilities as described in [SECURITY.md](SECURITY.md). Release ZIPs 
 ## Support scope
 
 This is a dedicated integration for the currently tested Pterodactyl beta. New Panel betas may change SDK or file contracts and require a rebuild and code adaptation. PHP syntax checks and TypeScript compilation are not substitutes for integration tests.
+
+## License
+
+[MIT](LICENSE)
