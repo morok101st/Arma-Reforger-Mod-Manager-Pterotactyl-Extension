@@ -28,32 +28,27 @@ Use the release asset, not GitHub's automatically generated **Source code** ZIP.
 
 ```mermaid
 flowchart TD
-    A[Administrator installs and enables the release package] --> B[Administrator configures ARMM URL and credentials]
-    B --> C[User with file.update opens ARMM Modsets]
-    C --> D[Load saved assignment]
-    C --> E[Load available modsets]
-    E --> F{10-minute cache available?}
-    F -- Yes --> G[Show cached modset list]
-    F -- No --> H[Authenticate with ARMM]
-    H --> I[GET /api/modsets]
-    I --> J[Cache list for 10 minutes]
-    J --> G
-    G --> K{Refresh Modsets clicked?}
-    K -- Yes --> L[POST /modsets/refresh]
-    L --> H
-    K -- No --> M[Select a modset and save assignment]
-    M --> N[Validate selected ID against available list]
-    N --> O[Store server ID, modset ID, and display name]
-    O --> P[Stop the Reforger server]
-    P --> Q[Synchronize config.json]
-    Q --> R["GET /api/modsets/{id}/export"]
-    R --> S[Read config.json through Wings]
-    S --> T[Write config.json.armm.bak through Wings]
-    T --> U[Replace only game.mods in config.json]
-    U --> V[Start server and validate mods]
+    A[Administrator configures ARMM] --> B[User opens ARMM Modsets]
+    B --> C[Panel loads assignment and modset list]
+    C --> D{List cached?}
+    D -- Yes --> E[Show cached list]
+    D -- No --> F[Fetch list from ARMM]
+    F --> E
+    E --> G[User selects and saves a modset]
+    G --> H[Panel stores the assignment]
+    E --> I[User clicks Refresh Modsets]
+    I --> F
+    H --> J[User stops the Reforger server]
+    J --> K[User synchronizes config.json]
+    K --> L[Panel exports the selected modset from ARMM]
+    L --> M[Panel backs up and updates config.json through Wings]
+    M --> N[User starts the server and validates mods]
+
+    classDef userAction fill:#2563eb,color:#ffffff,stroke:#60a5fa,stroke-width:2px;
+    class B,G,I,J,K,N userAction;
 ```
 
-The modset list loads automatically when the tab opens. **Refresh Modsets** bypasses the cache and fetches the current list from ARMM. `config.json` synchronization is always manual and should be performed with the game server stopped.
+Blue nodes are user actions. The modset list loads automatically when the tab opens. **Refresh Modsets** bypasses the 10-minute cache and fetches the current list from ARMM. `config.json` synchronization is always manual and should be performed with the game server stopped.
 
 ## Requirements
 
